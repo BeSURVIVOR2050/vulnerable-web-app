@@ -1,0 +1,82 @@
+# XAMPP → Docker Compose: PHP built-in server + MySQL 8
+#
+# Credentials: use a local ".env" (from .env.example). Do not put secrets in this file.
+#
+# Ports: APP_BIND / MYSQL_BIND default to 127.0.0.1 so services are not exposed on all interfaces.
+#
+# Volumes: mysql_data is a named Docker volume — back it up regularly (e.g. docker run + tar/mysqldump).
+#          The SQL seed mount is read-only (:ro) and only used on first database init.
+#
+# Network: isolated bridge with only app ↔ db attached. A stricter "internal-only" network is not used
+#          because this assignment’s ping demos require outbound traffic from the app container.
+#
+# ICMP ping (e.g. 8.8.8.8): the `ping` binary needs raw sockets → add CAP_NET_RAW on the app service.
+# Without it, ping often fails inside the container with "Operation not permitted" even if the network allows ICMP.
+# If ping still fails on Linux/WSL2, try the host-network stack: docker-compose.host-network.yml (see that file).
+#
+# Image updates: set PHP_IMAGE / MYSQL_IMAGE in .env and rebuild; prefer pinned patch tags over floating majors.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_IMAGE: ${PHP_IMAGE:-php:8.2-cli-bookworm}
+    container_name: itp4416_app
+    environment:
+      # Credentials: set in project ".env" (see .env.example); Compose loads it for variable substitution.
+      # DB_HOST is fixed to the db service — only this container should talk to MySQL on the backend network.
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD?Copy .env.example to .env and set DB_PASSWORD (match MYSQL_ROOT_PASSWORD)}
+      DB_NAME: ${DB_NAME:-secure_db}
+      # Container listen port (bridge mode maps host APP_PORT -> this port).
+      PHP_LISTEN_PORT: "8080"
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+    cap_add:
+      - NET_RAW
+    # Omit no-new-privileges here: combined with CAP_NET_RAW it can still block ICMP on some setups.
+
+  db:
+    image: ${MYSQL_IMAGE:-mysql:8.0}
+    container_name: itp4416_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD?Copy .env.example to .env and set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-secure_db}
+    ports:
+      - "${MYSQL_BIND:-127.0.0.1}:${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - type: bind
+        source: ./secure_db_init.sql
+        target: /docker-entrypoint-initdb.d/01-init.sql
+        read_only: true
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'if [ -z "$$MYSQL_ROOT_PASSWORD" ]; then mysqladmin ping -h 127.0.0.1 -uroot; else mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD"; fi',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 25s
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+    name: itp4416_backend
+
+volumes:
+  mysql_data:
+    name: itp4416_mysql_data
