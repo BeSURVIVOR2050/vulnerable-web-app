@@ -1,7 +1,6 @@
 
 # Vulnerable PHP Web Application - Security Demonstration
 
-**Assignment: ITP4416 Web Application Security**  
 **Name: KWONG CHI HIN, Isaac**  
 **Student ID: 240296882**
 
