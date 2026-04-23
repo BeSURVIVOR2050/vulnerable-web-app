@@ -15,7 +15,6 @@ The application includes both **vulnerable** and **secure** implementations of k
 **In-scope vulnerabilities:**
 - **SQL Injection (SQLi)** – Login and Dashboard
 - **Local File Inclusion (LFI)** – View page functionality
-- **Cross-Site Scripting (XSS)** – Reflected XSS
 
 ---
 
@@ -60,7 +59,6 @@ vulnerable-web-app/
 - **Login Page** (`login.php`) – SQL Injection vulnerability
 - **Dashboard** (`dashboard.php`) – UNION-based SQL Injection
 - **LFI Page** (`lfi.php`) – Local File Inclusion vulnerability
-- **XSS Page** (`xss.php`) – Reflected Cross-Site Scripting
 
 
 ### Secure Version (`secure/pages/`)
@@ -68,7 +66,6 @@ Contains patched versions using:
 - Prepared statements (PDO)
 - Input validation & sanitization
 - Whitelisting for file inclusion
-- Output escaping for XSS prevention
 
 ---
 
